@@ -1,67 +1,57 @@
 import random
-from collections import deque
+import time
 
 
 class TabuSearchNQueens:
-    def __init__(self, n, tabu_tenure=5, max_iterations=10000):
+    def __init__(self, n, visualizer=None, max_iter=50):
         self.n = n
-        self.tabu_tenure = tabu_tenure
-        self.max_iterations = max_iterations
-        self.tabu_list = deque(maxlen=tabu_tenure)
-
-    def initialize_solution(self):
-        return [random.randint(0, self.n - 1) for _ in range(self.n)]
-
-    def calculate_conflicts(self, solution):
-        conflicts = 0
-        for i in range(self.n):
-            for j in range(i + 1, self.n):
-                if solution[i] == solution[j] or abs(i - j) == abs(solution[i] - solution[j]):
-                    conflicts += 1
-        return conflicts
-
-    def generate_neighbors(self, solution):
-        neighbors = []
-        for col in range(self.n):
-            for row in range(self.n):
-                if row != solution[col]:
-                    neighbor = solution.copy()
-                    neighbor[col] = row
-                    neighbors.append((col, row, neighbor))
-        return neighbors
+        self.max_iter = max_iter
+        self.visualizer = visualizer
 
     def solve(self):
-        current_solution = self.initialize_solution()
-        best_solution = current_solution.copy()
-        best_conflicts = self.calculate_conflicts(current_solution)
+        current = [random.randint(0, self.n - 1) for _ in range(self.n)]
+        best = current.copy()
+        start_time = time.time()
 
-        for iteration in range(self.max_iterations):
-            if best_conflicts == 0:
+        for iteration in range(self.max_iter):
+            conflicts = self.calculate_conflicts(current)
+
+            if self.visualizer:
+                self.visualizer.update_display(
+                    current, "Tabu",
+                    time.time() - start_time,
+                    iteration + 1,
+                    conflicts == 0
+                )
+
+            if conflicts == 0:
                 break
 
-            neighbors = self.generate_neighbors(current_solution)
-            best_neighbor = None
-            best_neighbor_conflicts = float('inf')
-            best_move = None
+            current = self.get_best_neighbor(current)
 
-            for col, new_row, neighbor in neighbors:
-                move = (col, current_solution[col], new_row)
-                conflicts = self.calculate_conflicts(neighbor)
+        return current, iteration + 1, time.time() - start_time
 
-                if (conflicts < best_conflicts) or (move not in self.tabu_list):
-                    if conflicts < best_neighbor_conflicts:
-                        best_neighbor = neighbor
-                        best_neighbor_conflicts = conflicts
-                        best_move = move
+    def calculate_conflicts(self, queens):
+        return sum(
+            1 for i in range(self.n)
+            for j in range(i + 1, self.n)
+            if queens[i] == queens[j] or abs(i - j) == abs(queens[i] - queens[j])
+        )
 
-            if best_neighbor is None:
-                continue
+    def get_best_neighbor(self, queens):
+        # Find most conflicted column
+        col = max(
+            range(self.n),
+            key=lambda c: sum(
+                1 for i in range(self.n)
+                if i != c and (queens[i] == queens[c] or abs(i - c) == abs(queens[i] - queens[c]))
+            )
+        )
 
-            current_solution = best_neighbor
-            self.tabu_list.append(best_move)
+        # Find best row for that column
+        best_row = min(
+            range(self.n),
+            key=lambda r: self.calculate_conflicts(queens[:col] + [r] + queens[col + 1:])
+        )
 
-            if best_neighbor_conflicts < best_conflicts:
-                best_solution = current_solution.copy()
-                best_conflicts = best_neighbor_conflicts
-
-        return best_solution, best_conflicts
+        return queens[:col] + [best_row] + queens[col + 1:]
