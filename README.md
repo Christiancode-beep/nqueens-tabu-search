@@ -51,5 +51,7 @@ cd nqueens-tabu-search
 pip install matplotlib numpy
 
 **Usage**
+
 **Basic Execution**
+
 python main.py
